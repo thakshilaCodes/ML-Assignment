@@ -9,10 +9,15 @@ Dataset used: `Train_Dataset.csv` from Kaggle (Dish Network Hackathon dataset).
 ```text
 ML-ASSIGNMENT/
   data/
+    README.md
     raw/
-      Train_Dataset.csv
+      README.md
     processed/
+      README.md
+  notebooks/
+    README.md
   frontend/
+    README.md
     app.py
   models/
     README.md
@@ -21,10 +26,15 @@ ML-ASSIGNMENT/
     logistic_regression.py
     gradient_boosting.py
   outputs/
+    README.md
     trained_models/
+      README.md
     metrics/
+      README.md
   requirements.txt
 ```
+
+Empty folders include a short `README.md` so Git tracks them and documents what belongs there.
 
 ## Team Workflow
 
