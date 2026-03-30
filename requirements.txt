@@ -1,0 +1,16 @@
+streamlit
+pandas
+numpy
+scikit-learn
+xgboost
+joblib
+pandas
+numpy
+scikit-learn
+xgboost
+lightgbm
+pyyaml
+joblib
+matplotlib
+seaborn
+pytest
