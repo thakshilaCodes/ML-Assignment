@@ -1,8 +1,21 @@
-# Outputs
+# Outputs (one folder per algorithm)
 
-Generated artifacts from training and evaluation—not hand-edited source.
+Each algorithm writes only under its own directory:
 
-- **`trained_models/`** — Serialized models (e.g. `.joblib`) produced by `models/*.py`.
-- **`metrics/`** — Text or JSON logs: accuracy, confusion matrix summaries, etc.
+```text
+outputs/
+  random_forest/
+    trained_models/   # .joblib files
+    metrics/          # accuracy, reports
+  xgboost/
+    trained_models/
+    metrics/
+  logistic_regression/
+    trained_models/
+    metrics/
+  gradient_boosting/
+    trained_models/
+    metrics/
+```
 
-Add these paths to `.gitignore` if artifacts must not be pushed; otherwise keep small metric files for the report.
+This keeps models, metrics, and experiments separated by algorithm. Shared raw data stays in `data/raw/`.

@@ -11,46 +11,50 @@ ML-ASSIGNMENT/
   data/
     README.md
     raw/
-      README.md
     processed/
-      README.md
   notebooks/
     README.md
+    random_forest/
+    xgboost/
+    logistic_regression/
+    gradient_boosting/
   frontend/
     README.md
     app.py
   models/
     README.md
-    random_forest.py
-    xgboost.py
-    logistic_regression.py
-    gradient_boosting.py
+    random_forest/train.py
+    xgboost/train.py
+    xgboost/GUIDELINES.md
+    logistic_regression/train.py
+    gradient_boosting/train.py
   outputs/
     README.md
-    trained_models/
-      README.md
-    metrics/
-      README.md
+    random_forest/trained_models/  metrics/
+    xgboost/trained_models/        metrics/
+    logistic_regression/...
+    gradient_boosting/...
   requirements.txt
 ```
 
-Empty folders include a short `README.md` so Git tracks them and documents what belongs there.
+Empty or placeholder folders may include a short `README.md` so Git tracks them.
 
 ## Team Workflow
 
 1. Place Kaggle file as `data/raw/Train_Dataset.csv`.
-2. In each training script, set `TARGET_COL` to your label column name.
-3. Each member works on one of the four scripts in `models/`.
-4. Trained models are saved to `outputs/trained_models/`.
-5. Metrics are saved to `outputs/metrics/`.
+2. Each algorithm runs from its folder under `models/<algorithm>/train.py`.
+3. Outputs go to `outputs/<algorithm>/trained_models/` and `outputs/<algorithm>/metrics/`.
+4. Notebooks for each algorithm live under `notebooks/<algorithm>/`.
+
+Target column for this dataset: **`Default`** (1 = defaulted, 0 = otherwise).
 
 ## Run Example
 
 From the project root (`ML-ASSIGNMENT/`):
 
 ```bash
-python models/random_forest.py
-python models/xgboost.py
-python models/logistic_regression.py
-python models/gradient_boosting.py
+python models/random_forest/train.py
+python models/xgboost/train.py
+python models/logistic_regression/train.py
+python models/gradient_boosting/train.py
 ```

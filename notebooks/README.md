@@ -1,11 +1,10 @@
 # Notebooks
 
-Exploratory data analysis (EDA), preprocessing experiments, and per-algorithm prototyping.
+Each machine learning algorithm has its **own folder** so work stays separated:
 
-**Suggested naming:**
+- `notebooks/random_forest/`
+- `notebooks/xgboost/`
+- `notebooks/logistic_regression/`
+- `notebooks/gradient_boosting/`
 
-- `01_eda.ipynb` — explore `data/raw/Train_Dataset.csv`
-- `02_preprocess.ipynb` — optional; write cleaned data to `data/processed/`
-- `train_<algorithm>.ipynb` — aligns with `models/<algorithm>.py` for final scripts
-
-Keep heavy outputs out of the repo or clear outputs before commit if required by your course.
+See each folder’s `README.md`. Shared data remains under `data/raw/`.

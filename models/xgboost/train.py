@@ -1,4 +1,12 @@
-"""Train XGBoost classifier on Train_Dataset.csv."""
+"""
+Train XGBoost classifier on Train_Dataset.csv.
+
+Folder layout:
+  models/<ALGO_NAME>/train.py
+  data/raw/Train_Dataset.csv
+  outputs/<ALGO_NAME>/trained_models/<ALGO_NAME>.joblib
+  outputs/<ALGO_NAME>/metrics/<ALGO_NAME>.txt
+"""
 from pathlib import Path
 
 import joblib
@@ -7,11 +15,26 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA_PATH = ROOT / "data/raw/Train_Dataset.csv"
-TARGET_COL = "target"  # Change to the real label column in Train_Dataset.csv
-MODEL_OUT = ROOT / "outputs/trained_models/xgboost.joblib"
-METRICS_OUT = ROOT / "outputs/metrics/xgboost.txt"
+ALGO_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = ALGO_DIR.parent.parent
+ALGO_NAME = ALGO_DIR.name
+
+DATA_PATH = PROJECT_ROOT / "data" / "raw" / "Train_Dataset.csv"
+TARGET_COL = "Default"
+
+OUTPUT_DIR = PROJECT_ROOT / "outputs" / ALGO_NAME
+TRAINED_DIR = OUTPUT_DIR / "trained_models"
+METRICS_DIR = OUTPUT_DIR / "metrics"
+MODEL_OUT = TRAINED_DIR / f"{ALGO_NAME}.joblib"
+METRICS_OUT = METRICS_DIR / f"{ALGO_NAME}.txt"
+
+
+def _stratify_if_ok(y: pd.Series):
+    if y.nunique() < 2:
+        return None
+    if y.value_counts().min() < 2:
+        return None
+    return y
 
 
 def main():
@@ -23,8 +46,9 @@ def main():
     y = df[TARGET_COL]
     X = pd.get_dummies(X, dummy_na=True)
 
+    strat = _stratify_if_ok(y)
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X, y, test_size=0.2, random_state=42, stratify=strat
     )
 
     model = XGBClassifier(random_state=42, eval_metric="logloss")

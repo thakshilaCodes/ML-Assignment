@@ -3,7 +3,10 @@ import streamlit as st
 st.set_page_config(page_title="Loan Prediction Frontend", layout="centered")
 st.title("Loan Prediction - Team Model Frontend")
 
-st.write("This is a starter frontend. Connect trained models from `outputs/trained_models/`.")
+st.write(
+    "Trained models load from per-algorithm folders, e.g. "
+    "`outputs/xgboost/trained_models/`. See `outputs/README.md`."
+)
 
 model_choice = st.selectbox(
     "Select model",
