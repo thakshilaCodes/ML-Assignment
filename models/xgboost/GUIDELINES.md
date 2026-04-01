@@ -4,8 +4,8 @@
 
 | File | Role |
 |------|------|
-| `preprocessing_pipeline.py` | Normalization (numeric `StandardScaler`), imputation, **sparse** one-hot (`ColumnTransformer` + `OneHotEncoder`), **variance filter**, **ANOVA F-score feature selection** (`SelectPercentile` with `f_classif`), `XGBClassifier` |
-| `train.py` | CLI training using the pipeline above; saves `outputs/xgboost/` |
+| `preprocessing_pipeline.py` | Normalization (numeric `StandardScaler`), imputation, **sparse** one-hot (`ColumnTransformer` + `OneHotEncoder`), **variance filter**, **ANOVA F-score feature selection** (`SelectPercentile` with `f_classif`), `XGBClassifier` (optional `scale_pos_weight` for imbalance) |
+| `train.py` | Trains on **full** `Train_Dataset.csv`; **stratified CV** for metrics; scores `Test_Dataset.csv` (no labels in file → predictions CSV only); saves `outputs/xgboost/` |
 
 ## Run
 

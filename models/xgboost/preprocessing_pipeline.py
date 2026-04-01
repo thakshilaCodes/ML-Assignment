@@ -14,7 +14,9 @@ Memory-safe for large categorical cardinality:
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
+from pandas.api.types import is_categorical_dtype, is_string_dtype
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import SelectPercentile, f_classif
@@ -23,6 +25,63 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from xgboost import XGBClassifier
+
+
+def _text_like_column_names(X: pd.DataFrame) -> list[str]:
+    """Columns that should be cast to str for OHE (avoids pandas ``select_dtypes`` str deprecation)."""
+    out: list[str] = []
+    for c in X.columns:
+        dt = X[c].dtype
+        if dt == object or dt == np.dtype("O"):
+            out.append(c)
+        elif is_categorical_dtype(X[c]) or is_string_dtype(X[c]):
+            out.append(c)
+    return out
+
+
+def prepare_raw_features(X: pd.DataFrame) -> pd.DataFrame:
+    """
+    Before fitting: force numeric columns to float (invalid tokens → NaN) and
+    text-like columns to str. Keeps train/test behavior aligned with the pipeline.
+    """
+    X = X.copy()
+    for c in X.select_dtypes(include=[np.number]).columns:
+        X[c] = pd.to_numeric(X[c], errors="coerce")
+    for c in _text_like_column_names(X):
+        X[c] = X[c].map(lambda v: v if pd.isna(v) else str(v))
+    return X
+
+
+def infer_prep_column_groups(prep: ColumnTransformer) -> tuple[list[str], list[str]]:
+    """Numeric vs categorical column names from a fitted ``ColumnTransformer``."""
+    num_cols: list[str] = []
+    cat_cols: list[str] = []
+    for name, _trans, cols in prep.transformers_:
+        if name in ("remainder", "drop"):
+            continue
+        if name == "num":
+            num_cols = list(cols)
+        elif name == "cat":
+            cat_cols = list(cols)
+    return num_cols, cat_cols
+
+
+def align_features_for_pipeline(model: Pipeline, X: pd.DataFrame) -> pd.DataFrame:
+    """
+    Align new data (e.g. ``Test_Dataset.csv``) with the fitted preprocessor:
+    numeric columns → ``pd.to_numeric`` (so placeholders like ``'#'`` become NaN),
+    categorical columns → strings for OHE.
+    """
+    prep = model.named_steps["prep"]
+    num_cols, cat_cols = infer_prep_column_groups(prep)
+    X = X.copy()
+    for c in num_cols:
+        if c in X.columns:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+    for c in cat_cols:
+        if c in X.columns:
+            X[c] = X[c].map(lambda v: v if pd.isna(v) else str(v))
+    return X
 
 
 class CastCategoricalToString(BaseEstimator, TransformerMixin):
@@ -38,7 +97,7 @@ class CastCategoricalToString(BaseEstimator, TransformerMixin):
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
         self.columns_ = X.columns.tolist()
-        self.cat_cols_ = X.select_dtypes(include=["object", "category"]).columns.tolist()
+        self.cat_cols_ = _text_like_column_names(X)
         return self
 
     def transform(self, X):
@@ -89,6 +148,7 @@ def build_xgb_pipeline(
     select_percentile: float = 40.0,
     variance_threshold: float = 1e-8,
     random_state: int = 42,
+    scale_pos_weight: float | None = None,
 ) -> Pipeline:
     """
     Build sklearn Pipeline: cast → preprocess (sparse) → variance → ANOVA selection → XGBoost.
@@ -97,6 +157,9 @@ def build_xgb_pipeline(
     ----------
     select_percentile : float
         Keep top ``select_percentile`` percent of features by ANOVA F-score (0–100).
+    scale_pos_weight : float, optional
+        XGBoost class weight for the positive class (default risk). Typical value for
+        binary imbalance: ``count(negative) / count(positive)``. ``None`` uses XGBoost default (1.0).
     """
     numeric_features = X.select_dtypes(include=["number"]).columns.tolist()
     categorical_features = X.select_dtypes(
@@ -124,7 +187,7 @@ def build_xgb_pipeline(
         remainder="drop",
     )
 
-    clf = XGBClassifier(
+    clf_kw: dict = dict(
         n_estimators=400,
         max_depth=6,
         learning_rate=0.05,
@@ -137,6 +200,9 @@ def build_xgb_pipeline(
         eval_metric="logloss",
         tree_method="hist",
     )
+    if scale_pos_weight is not None:
+        clf_kw["scale_pos_weight"] = float(scale_pos_weight)
+    clf = XGBClassifier(**clf_kw)
 
     return Pipeline(
         steps=[
