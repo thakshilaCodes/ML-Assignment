@@ -30,7 +30,7 @@ If `streamlit` alone is not found (common on Windows), always use **`python -m s
 
 ## Notes
 
-- Pickle loads the custom steps from `models/xgboost/preprocessing_pipeline.py`. The app prepends that folder to `sys.path` so `joblib.load` works when you run Streamlit from the repo root.
+- Model loading uses `joblib` directly from `outputs/xgboost/trained_models/xgboost.joblib`; no extra `sys.path` setup is required.
 - **scikit-learn:** train/save and the Streamlit app should use the **same** `scikit-learn` version when possible. If you see `SimpleImputer` / `_fill_dtype` errors on old `.joblib` files, the app patches common cases; when in doubt, re-save the model from the same environment as Streamlit.
 - If you move the project, keep the same layout or adjust the path in the sidebar.
 

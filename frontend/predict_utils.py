@@ -1,8 +1,8 @@
 """
 Helpers for loading the XGBoost sklearn Pipeline and building prediction inputs.
 
-The training script saves the model as ``preprocessing_pipeline`` from ``models/xgboost/``;
-``sys.path`` must include that directory before ``joblib.load`` (see ``app.py``).
+The training script saves a standard sklearn/XGBoost pipeline model under
+`outputs/xgboost/trained_models/`, and the app loads it directly via ``joblib``.
 """
 from __future__ import annotations
 

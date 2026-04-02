@@ -1,49 +1,19 @@
-total_labeled_rows=121856
-test_split_size=0.2
-train_split_rows=97484
-test_split_rows=24372
-random_state=42
-positive_rate_full=0.0808
-scale_pos_weight_train_split=11.3773
-scale_pos_weight_full_fit=11.3775
+train_rows=121856
+scale_pos_weight=11.377450
+best_xgb_params={'colsample_bytree': 0.95, 'gamma': 0.0, 'learning_rate': 0.06, 'max_depth': 6, 'min_child_weight': 1, 'n_estimators': 500, 'subsample': 0.8}
+target_min_accuracy=0.80
+best_threshold_for_accuracy=0.525
+oof_accuracy_at_best_threshold=0.8111
+cv_folds=5
+cv_accuracy_mean=0.7932 (+/- 0.0022)
+cv_roc_auc_mean=0.7620 (+/- 0.0053)
+in_sample_accuracy=0.8478
 
-cv_folds=5  (CV only on train split, not on test split)
-cv_accuracy_mean=0.7114 (+/- 0.0027)
-cv_roc_auc_mean=0.7201 (+/- 0.0030)
-
-Test set (stratified split from Train_Dataset.csv):
-test_accuracy=0.7145
-test_roc_auc=0.7225
-test_precision_weighted=0.8899
-test_recall_weighted=0.7145
-test_f1_weighted=0.7775
-test_precision_default_class=0.1611
-test_recall_default_class=0.6023
-test_f1_default_class=0.2542
-
-train_fit_accuracy_full_data=0.7237  (in-sample on all rows; optimistic)
-
-Classification report — test set:
               precision    recall  f1-score   support
 
-           0       0.95      0.72      0.82     22403
-           1       0.16      0.60      0.25      1969
+           0       0.99      0.85      0.91    112011
+           1       0.33      0.87      0.48      9845
 
-    accuracy                           0.71     24372
-   macro avg       0.56      0.66      0.54     24372
-weighted avg       0.89      0.71      0.78     24372
-
-
-Classification report — full data in-sample (for reference):
-              precision    recall  f1-score   support
-
-           0       0.97      0.72      0.83    112011
-           1       0.19      0.73      0.30      9845
-
-    accuracy                           0.72    121856
-   macro avg       0.58      0.73      0.56    121856
-weighted avg       0.91      0.72      0.79    121856
-
-
-Note: Kaggle Test_Dataset.csv often has no Default; test metrics above use a split from Train_Dataset.
-Saved model is fit on ALL labeled rows for deployment / Streamlit.
+    accuracy                           0.85    121856
+   macro avg       0.66      0.86      0.69    121856
+weighted avg       0.93      0.85      0.88    121856
