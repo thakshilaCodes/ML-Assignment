@@ -5,7 +5,7 @@
 | File | Role |
 |------|------|
 | `preprocessing_pipeline.py` | Normalization (numeric `StandardScaler`), imputation, **sparse** one-hot (`ColumnTransformer` + `OneHotEncoder`), **variance filter**, **ANOVA F-score feature selection** (`SelectPercentile` with `f_classif`), `XGBClassifier` (optional `scale_pos_weight` for imbalance) |
-| `train.py` | Trains on **full** `Train_Dataset.csv`; **stratified CV** for metrics; scores `Test_Dataset.csv` (no labels in file → predictions CSV only); saves `outputs/xgboost/` |
+| `train.py` | **80/20 stratified train/test split** from `Train_Dataset.csv` → `test_accuracy` & related metrics; **5-fold CV** only on the train split; **re-fits on all labeled rows** and saves `xgboost.joblib`; scores Kaggle `Test_Dataset.csv` if present (often no labels → predictions CSV only); writes `outputs/xgboost/` |
 
 ## Run
 

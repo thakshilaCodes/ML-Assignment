@@ -35,6 +35,19 @@ SECTION_TITLES: dict[str, str] = {
     "misc": "Other details",
 }
 
+# Shown next to section titles in the form (visual anchors)
+SECTION_ICONS: dict[str, str] = {
+    "household": "👤",
+    "assets": "🚗",
+    "loan": "💳",
+    "money": "💰",
+    "work": "💼",
+    "area": "📍",
+    "credit": "📊",
+    "contact": "📞",
+    "misc": "📋",
+}
+
 SECTION_CAPTIONS: dict[str, str] = {
     "household": "Basic facts about the applicant and family.",
     "assets": "What the applicant owns — used as background for the estimate.",

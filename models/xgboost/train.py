@@ -1,8 +1,11 @@
 """
-Train XGBoost on the full Train_Dataset.csv (no random train/validation split).
+Train XGBoost on ``Train_Dataset.csv``.
 
-Evaluation uses stratified k-fold CV on the training set. The official ``Test_Dataset.csv``
-has no ``Default`` column (Kaggle-style); we score it and save predictions only.
+- **Stratified train/test split** on the labeled CSV yields ``test_accuracy`` and related
+  metrics (Kaggle ``Test_Dataset.csv`` often has no ``Default`` labels).
+- **5-fold stratified CV** runs only on the **training** portion of that split so folds
+  do not overlap the test set.
+- The saved ``.joblib`` model is **re-fit on all rows** afterward for deployment.
 
 See ``preprocessing_pipeline.py`` for the pipeline definition.
 """
@@ -11,8 +14,15 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 
 from preprocessing_pipeline import build_xgb_pipeline, align_features_for_pipeline, prepare_raw_features
 
@@ -34,6 +44,8 @@ TEST_PREDS_OUT = METRICS_DIR / f"{ALGO_NAME}_test_predictions.csv"
 CV_FOLDS = 5
 SELECT_PERCENTILE = 40.0
 RANDOM_STATE = 42
+# Labeled test fraction from Train_Dataset (Test_Dataset.csv has no Default in this repo)
+TEST_SPLIT_SIZE = 0.2
 
 
 def _scale_pos_weight(y: pd.Series) -> float:
@@ -52,23 +64,60 @@ def main():
     X = prepare_raw_features(df.drop(columns=[TARGET_COL]))
     y = df[TARGET_COL].astype(int)
 
-    spw = _scale_pos_weight(y)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=TEST_SPLIT_SIZE,
+        stratify=y,
+        random_state=RANDOM_STATE,
+    )
+
+    spw_train = _scale_pos_weight(y_train)
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
 
     base = build_xgb_pipeline(
-        X, select_percentile=SELECT_PERCENTILE, scale_pos_weight=spw
+        X_train, select_percentile=SELECT_PERCENTILE, scale_pos_weight=spw_train
     )
 
-    print("Running stratified cross-validation on training data...")
+    print(
+        f"Running {CV_FOLDS}-fold stratified CV on training split "
+        f"({len(y_train)} train rows, {len(y_test)} test rows)..."
+    )
     cv_acc = cross_val_score(
-        base, X, y, cv=cv, scoring="accuracy", n_jobs=1
+        base, X_train, y_train, cv=cv, scoring="accuracy", n_jobs=1
     )
     cv_auc = cross_val_score(
-        base, X, y, cv=cv, scoring="roc_auc", n_jobs=1
+        base, X_train, y_train, cv=cv, scoring="roc_auc", n_jobs=1
     )
 
+    eval_model = build_xgb_pipeline(
+        X_train, select_percentile=SELECT_PERCENTILE, scale_pos_weight=spw_train
+    )
+    eval_model.fit(X_train, y_train)
+    test_pred = eval_model.predict(X_test)
+    test_proba = eval_model.predict_proba(X_test)[:, 1]
+    test_acc = accuracy_score(y_test, test_pred)
+    test_auc = roc_auc_score(y_test, test_proba)
+    test_prec_w = precision_score(
+        y_test, test_pred, average="weighted", zero_division=0
+    )
+    test_rec_w = recall_score(
+        y_test, test_pred, average="weighted", zero_division=0
+    )
+    test_f1_w = f1_score(y_test, test_pred, average="weighted", zero_division=0)
+    test_prec_1 = precision_score(
+        y_test, test_pred, pos_label=1, average="binary", zero_division=0
+    )
+    test_rec_1 = recall_score(
+        y_test, test_pred, pos_label=1, average="binary", zero_division=0
+    )
+    test_f1_1 = f1_score(
+        y_test, test_pred, pos_label=1, average="binary", zero_division=0
+    )
+
+    spw_full = _scale_pos_weight(y)
     model = build_xgb_pipeline(
-        X, select_percentile=SELECT_PERCENTILE, scale_pos_weight=spw
+        X, select_percentile=SELECT_PERCENTILE, scale_pos_weight=spw_full
     )
     model.fit(X, y)
 
@@ -76,18 +125,39 @@ def main():
     train_acc = accuracy_score(y, train_pred)
 
     lines = [
-        f"train_rows={len(y)}",
-        f"positive_rate={(y == 1).mean():.4f}",
-        f"scale_pos_weight={spw:.4f}",
-        f"cv_folds={CV_FOLDS}",
+        f"total_labeled_rows={len(y)}",
+        f"test_split_size={TEST_SPLIT_SIZE}",
+        f"train_split_rows={len(y_train)}",
+        f"test_split_rows={len(y_test)}",
+        f"random_state={RANDOM_STATE}",
+        f"positive_rate_full={(y == 1).mean():.4f}",
+        f"scale_pos_weight_train_split={spw_train:.4f}",
+        f"scale_pos_weight_full_fit={spw_full:.4f}",
+        "",
+        f"cv_folds={CV_FOLDS}  (CV only on train split, not on test split)",
         f"cv_accuracy_mean={cv_acc.mean():.4f} (+/- {cv_acc.std():.4f})",
         f"cv_roc_auc_mean={cv_auc.mean():.4f} (+/- {cv_auc.std():.4f})",
-        f"train_fit_accuracy={train_acc:.4f}  (in-sample; optimistic)",
         "",
-        "Note: Test_Dataset.csv has no Default labels in this repo; test predictions are saved separately.",
+        "Test set (stratified split from Train_Dataset.csv):",
+        f"test_accuracy={test_acc:.4f}",
+        f"test_roc_auc={test_auc:.4f}",
+        f"test_precision_weighted={test_prec_w:.4f}",
+        f"test_recall_weighted={test_rec_w:.4f}",
+        f"test_f1_weighted={test_f1_w:.4f}",
+        f"test_precision_default_class={test_prec_1:.4f}",
+        f"test_recall_default_class={test_rec_1:.4f}",
+        f"test_f1_default_class={test_f1_1:.4f}",
         "",
-        "Classification report (in-sample, for reference):",
+        f"train_fit_accuracy_full_data={train_acc:.4f}  (in-sample on all rows; optimistic)",
+        "",
+        "Classification report — test set:",
+        classification_report(y_test, test_pred, zero_division=0),
+        "",
+        "Classification report — full data in-sample (for reference):",
         classification_report(y, train_pred, zero_division=0),
+        "",
+        "Note: Kaggle Test_Dataset.csv often has no Default; test metrics above use a split from Train_Dataset.",
+        "Saved model is fit on ALL labeled rows for deployment / Streamlit.",
     ]
 
     MODEL_OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -97,8 +167,10 @@ def main():
 
     print(f"Saved model to {MODEL_OUT}")
     print(f"Saved metrics to {METRICS_OUT}")
-    print(f"CV accuracy: {cv_acc.mean():.4f} (+/- {cv_acc.std():.4f})")
-    print(f"CV ROC-AUC: {cv_auc.mean():.4f} (+/- {cv_auc.std():.4f})")
+    print(f"CV accuracy (train split): {cv_acc.mean():.4f} (+/- {cv_acc.std():.4f})")
+    print(f"CV ROC-AUC (train split): {cv_auc.mean():.4f} (+/- {cv_auc.std():.4f})")
+    print(f"test_accuracy: {test_acc:.4f}")
+    print(f"test_roc_auc: {test_auc:.4f}")
 
     if DATA_TEST.is_file():
         df_test = pd.read_csv(DATA_TEST, low_memory=False)
@@ -110,13 +182,13 @@ def main():
             raise ValueError(f"Test CSV missing columns: {missing[:20]}")
         if extra:
             df_test = df_test.drop(columns=extra, errors="ignore")
-        X_test = align_features_for_pipeline(model, df_test[X.columns])
-        proba = model.predict_proba(X_test)
+        X_unlabeled = align_features_for_pipeline(model, df_test[X.columns])
+        proba = model.predict_proba(X_unlabeled)
         p_default = proba[:, 1] if proba.shape[1] > 1 else proba[:, 0]
         out = pd.DataFrame(
             {
-                "ID": X_test["ID"] if "ID" in X_test.columns else np.arange(len(X_test)),
-                "pred_default": model.predict(X_test),
+                "ID": X_unlabeled["ID"] if "ID" in X_unlabeled.columns else np.arange(len(X_unlabeled)),
+                "pred_default": model.predict(X_unlabeled),
                 "p_default": p_default,
             }
         )

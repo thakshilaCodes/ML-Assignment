@@ -24,6 +24,7 @@ if str(_XGB_MODEL_DIR) not in sys.path:
 
 from feature_labels import (  # noqa: E402
     SECTION_CAPTIONS,
+    SECTION_ICONS,
     SECTION_TITLES,
     YES_NO_NUMERIC_COLUMNS,
     bounded_number_input_kwargs,
@@ -86,6 +87,11 @@ def _css():
         button[kind="primary"] { background: #0284c7 !important; border: none !important; font-weight: 600 !important; border-radius: 10px !important; padding: 0.65rem 1.25rem !important; box-shadow: 0 1px 2px rgba(2,132,199,0.25); }
         button[kind="primary"]:hover { background: #0369a1 !important; }
         label[data-testid="stWidgetLabel"] p { font-size: 0.95rem; color: #334155; }
+        .steps-row { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0 0 1.25rem 0; }
+        .step-pill { flex: 1; min-width: 140px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.85rem 1rem; text-align: center; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+        .step-pill strong { display: block; color: #0f172a; font-size: 0.95rem; margin-bottom: 0.25rem; }
+        .step-pill span { font-size: 0.8rem; color: #64748b; line-height: 1.35; }
+        div[data-testid="stExpander"] details { border-radius: 12px; border: 1px solid #e2e8f0; background: #fafbfc; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -95,6 +101,20 @@ def _css():
 def _hero(title: str, subtitle: str) -> None:
     st.markdown(
         f'<div class="app-hero"><h1>{title}</h1><p>{subtitle}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _steps_banner() -> None:
+    """Short 3-step guide so users know what to do next."""
+    st.markdown(
+        """
+        <div class="steps-row">
+          <div class="step-pill"><strong>1 · Model</strong><span>Loaded from the sidebar (or upload)</span></div>
+          <div class="step-pill"><strong>2 · Details</strong><span>Fill the sections below — skip what you don’t know</span></div>
+          <div class="step-pill"><strong>3 · Result</strong><span>Submit to see default risk as a %</span></div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -137,7 +157,7 @@ def main():
     # —— Sidebar: model source ——
     with st.sidebar:
         st.markdown("### Prediction model")
-        st.caption("Point to your saved model, or upload the file from training.")
+        st.caption("The app needs your trained `.joblib` file once.")
         use_upload = st.checkbox("Upload a model file instead", value=False)
         if use_upload:
             up = st.file_uploader(
@@ -172,6 +192,15 @@ def main():
             else:
                 st.warning("Model file not found. Check the path or upload a file above.")
 
+        with st.expander("How this app works", expanded=False):
+            st.markdown(
+                """
+1. **Load the model** — same file produced by `python models/xgboost/train.py`.
+2. **Enter one applicant** (or upload a CSV on the second tab).
+3. **Read the %** — higher = model thinks default is more likely. Not a credit decision.
+"""
+            )
+
     if model_obj is None:
         st.info(
             "Choose or upload a trained model in the **sidebar** to run a check. "
@@ -194,7 +223,10 @@ def main():
 
     cat_uniques = _cached_cat_uniques(tuple(cat_cols))
     cat_free_num, cat_discrete = split_cat_for_ui(cat_cols)
-    tab1, tab2 = st.tabs(["One applicant", "Upload a spreadsheet"])
+
+    _steps_banner()
+
+    tab1, tab2 = st.tabs(["One applicant", "Many rows (CSV)"])
 
     with tab1:
         _single_form_ui(
@@ -276,12 +308,12 @@ def _single_form_ui(
                 help=h_base + " Pick the closest match, or type your own wording below.",
             )
             values[f"_cat_ov_{col}"] = st.text_input(
-                "Override (optional)",
+                "Or type your own value",
                 value="",
                 key=f"cat_ov_{col}",
-                label_visibility="collapsed",
-                placeholder="Only if the list doesn’t fit",
-                help="If you type here, we use your text instead of the dropdown.",
+                label_visibility="visible",
+                placeholder="Leave empty to use the list above",
+                help="Only fill this if the dropdown doesn’t have the right wording.",
             )
         elif opts:
             values[col] = st.text_input(
@@ -301,25 +333,34 @@ def _single_form_ui(
             )
 
     with st.form("predict_form", clear_on_submit=False):
-        st.markdown("#### Tell us about the applicant")
+        st.markdown("#### Enter applicant details")
+        st.info(
+            "**Tips:** Use **ⓘ** next to any field for examples. "
+            "Defaults come from typical training data — change only what you know. "
+            "When a list doesn’t match, use the text box under it."
+        )
         st.caption(
-            "Questions are grouped by topic. Anything we can infer automatically (like application time) is already filled in. "
-            "Use **ⓘ** on each line if you need a hint."
+            "Each topic is in its own **section** below — click a section title to open or close it. "
+            "Fill every section before you submit."
         )
 
         values: dict = {}
         for sec_idx, (sec_key, pairs) in enumerate(sections):
-            st.markdown(f"##### {SECTION_TITLES.get(sec_key, 'Details')}")
-            st.caption(SECTION_CAPTIONS.get(sec_key, ""))
-            left, right = st.columns(2)
-            mid = (len(pairs) + 1) // 2
-            for j, (kind, col) in enumerate(pairs):
-                with (left if j < mid else right):
-                    _put_field(kind, col, values)
-            if sec_idx < len(sections) - 1:
-                st.divider()
+            icon = SECTION_ICONS.get(sec_key, "•")
+            title = SECTION_TITLES.get(sec_key, "Details")
+            cap = SECTION_CAPTIONS.get(sec_key, "")
+            # Expand first section by default so the form doesn’t feel like a wall; others open too for scanning.
+            exp_label = f"{icon}  {title}"
+            # First section open by default; others collapsed to reduce scrolling — click to expand.
+            with st.expander(exp_label, expanded=(sec_idx == 0)):
+                st.caption(cap)
+                left, right = st.columns(2)
+                mid = (len(pairs) + 1) // 2
+                for j, (kind, col) in enumerate(pairs):
+                    with (left if j < mid else right):
+                        _put_field(kind, col, values)
 
-        submitted = st.form_submit_button("See risk estimate", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("Calculate default risk", type="primary", use_container_width=True)
 
     if submitted:
         try:
@@ -349,27 +390,35 @@ def _single_form_ui(
 
             st.divider()
             st.markdown("#### Result")
+            st.caption("Model output — interpret as a rough score, not a decision.")
+
             m1, m2, m3 = st.columns(3)
             with m1:
-                outcome = "Higher chance of default" if label == 1 else "Lower chance of default"
-                st.metric("What the model suggests", outcome)
+                outcome = "Higher risk profile" if label == 1 else "Lower risk profile"
+                st.metric("Summary", outcome)
             with m2:
-                st.metric("Chance of default", f"{p_default:.1%}")
+                st.metric("Estimated chance of default", f"{p_default:.1%}")
             with m3:
-                st.metric("Chance of repaying on time", f"{1 - p_default:.1%}")
+                st.metric("Estimated chance of on-time repayment", f"{1 - p_default:.1%}")
+
+            st.progress(min(float(p_default), 1.0))
+            st.caption(
+                f"Risk bar: more filled = higher estimated default chance ({p_default:.1%}). "
+                "0% = left, 100% = full."
+            )
 
             if label == 1:
-                st.error(
-                    "The model flags **higher** default risk for this profile. "
-                    "This is only a statistical hint — not approval or decline."
+                st.warning(
+                    "**Higher predicted default risk** for this input. "
+                    "Use alongside policy and human review — not as approve/decline by itself."
                 )
             else:
                 st.success(
-                    "The model flags **lower** default risk for this profile. "
-                    "This is only a statistical hint — not approval or decline."
+                    "**Lower predicted default risk** for this input. "
+                    "Still not a guarantee of repayment."
                 )
             st.caption(
-                "For learning or internal review only. It does not replace underwriting rules, fair-lending checks, or a human decision."
+                "Educational / internal use. Does not replace underwriting, fair lending, or human judgment."
             )
         except Exception as e:
             st.exception(e)
@@ -381,15 +430,21 @@ def _batch_csv_ui(
     cat_cols: list[str],
     defaults: dict,
 ):
-    st.markdown(
-        "Upload a **CSV** with one row per applicant. Use the **same column names** as when the model was trained. "
-        "If you include an outcome column (default yes/no), it is ignored for scoring."
+    st.markdown("**Batch scoring** — one row per applicant, same columns as training.")
+    st.info(
+        "1. Export your table as **CSV**.  \n"
+        "2. Column names must **match** the training file (technical names).  \n"
+        "3. A `Default` column is optional — it will be ignored if present."
     )
     if AUTOFILL_HIDDEN_COLUMNS:
         st.caption(
-            "You can leave out application ID and timing columns — we fill sensible defaults."
+            "You can omit application ID and timing columns — we fill sensible defaults."
         )
-    f = st.file_uploader("CSV file", type=["csv"], help="Comma-separated file, same layout as training.")
+    f = st.file_uploader(
+        "Drop your CSV here or browse",
+        type=["csv"],
+        help="Same structure as Train_Dataset.csv (without needing the Default column for new applicants).",
+    )
     if f is None:
         return
 
