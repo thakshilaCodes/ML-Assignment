@@ -1,0 +1,19 @@
+train_rows=121856
+scale_pos_weight=11.377450
+best_xgb_params={'colsample_bytree': 0.95, 'gamma': 0.0, 'learning_rate': 0.06, 'max_depth': 6, 'min_child_weight': 1, 'n_estimators': 500, 'subsample': 0.8}
+target_min_accuracy=0.80
+best_threshold_for_accuracy=0.525
+oof_accuracy_at_best_threshold=0.8111
+cv_folds=5
+cv_accuracy_mean=0.7932 (+/- 0.0022)
+cv_roc_auc_mean=0.7620 (+/- 0.0053)
+in_sample_accuracy=0.8478
+
+              precision    recall  f1-score   support
+
+           0       0.99      0.85      0.91    112011
+           1       0.33      0.87      0.48      9845
+
+    accuracy                           0.85    121856
+   macro avg       0.66      0.86      0.69    121856
+weighted avg       0.93      0.85      0.88    121856
