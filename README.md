@@ -58,3 +58,16 @@ python models/xgboost/train.py
 python models/logistic_regression/train.py
 python models/gradient_boosting/train.py
 ```
+
+## Frontend (XGBoost predictions)
+
+After training XGBoost (default app path: `outputs/xgboost/trained_models/xgboost.joblib` from `train.py`), run the Streamlit UI from the project root:
+
+```bash
+python -m pip install -r requirements.txt
+python -m streamlit run frontend/app.py
+```
+
+Use `python -m streamlit` (not bare `streamlit`) if Windows reports “streamlit is not recognized” — the `Scripts` folder is often missing from `PATH`.
+
+See `frontend/README.md` for upload vs path, batch CSV, and layout details.
